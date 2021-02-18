@@ -1,4 +1,6 @@
 import xmltodict
+import pprint
+
 from typing import Dict, List, OrderedDict
 
 from django.conf import settings
@@ -54,7 +56,7 @@ def create_stock_per_day(yaks: List[OrderedDict], days_past: int) -> List[Dict]:
     start_stock = {
         'days_past': 1,
         'milk': sum([calc_milk(yak['age_in_days']) for yak in yaks]),
-        'skins': sum([1 for yak in yaks])
+        'skins': len(yaks)
     }
     stock_per_day = [start_stock]
 

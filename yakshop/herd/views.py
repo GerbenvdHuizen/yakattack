@@ -33,14 +33,21 @@ class HerdView(APIView):
         db_yaks = Yak.objects.all().order_by('pk')
         yaks_with_last_shaved_info = calc_yak_last_shaved(db_yaks.values(), int(days_past))
 
-        formatted_yaks = [
-            {
+        formatted_yaks = []
+        for yak in yaks_with_last_shaved_info:
+            age = float((yak['age_in_days'] + int(days_past))/settings.YAK_YEAR_IN_DAYS)
+            yak_state = 'alive'
+            if age >= settings.YAK_MAX_AGE/settings.YAK_YEAR_IN_DAYS:
+                age = settings.YAK_MAX_AGE/settings.YAK_YEAR_IN_DAYS
+                yak_state = 'deceased'
+            formatted_yak = {
                 'name': yak['name'],
-                'age': float((yak['age_in_days'] + int(days_past))/settings.YAK_YEAR_IN_DAYS),
-                'age-last-shaved': float(yak['age_last_shaved']/settings.YAK_YEAR_IN_DAYS)
+                'age': age,
+                'age-last-shaved': float(yak['age_last_shaved']/settings.YAK_YEAR_IN_DAYS),
+                'status': yak_state
             }
-            for yak in yaks_with_last_shaved_info
-        ]
+            formatted_yaks.append(formatted_yak)
+
         return Response({'herd': formatted_yaks})
 
 
@@ -105,6 +112,7 @@ class OrderListView(APIView):
     def delete(self, request):
         Order.objects.all().delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
 
 class UpdateXMLView(APIView):
 
