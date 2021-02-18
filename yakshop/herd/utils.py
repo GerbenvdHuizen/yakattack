@@ -7,21 +7,26 @@ from django.db import transaction
 from herd.models import Stock, Yak
 
 
-def read_herd_xml() -> OrderedDict:
+def read_herd_xml() -> List[Dict]:
     with open(settings.PATH_TO_HERD, "r") as xml_obj:
         herd = xmltodict.parse(xml_obj.read())
         xml_obj.close()
-    return herd
 
-
-def convert_data_to_objects(herd_data: OrderedDict) -> List[Dict]:
-    yaks = herd_data['herd']['labyak']
+    yaks = herd['herd']['labyak']
     yak_objects = [
         {'name': yak['@name'],
          'age_in_days': int(float(yak['@age']) * settings.YAK_YEAR_IN_DAYS),
          'sex': yak['@sex']}
         for yak in yaks]
     return yak_objects
+
+
+def check_and_update_herd():
+    db_yaks = Yak.objects.all().order_by('pk')
+    if not db_yaks:
+        yaks_from_xml = read_herd_xml()
+        with transaction.atomic():
+            Yak.objects.bulk_create([Yak(**yak_data) for yak_data in yaks_from_xml])
 
 
 def calc_milk(age_in_days: int) -> float:
@@ -115,13 +120,3 @@ def create_herd_xml_from_dict(data: Dict):
 
     with open(settings.PATH_TO_HERD, "w") as f:
         f.write(xml_str)
-
-
-def check_and_update_herd():
-    db_yaks = Yak.objects.all().order_by('pk')
-    if not db_yaks:
-        herd_xml_data = read_herd_xml()
-        yaks = convert_data_to_objects(herd_xml_data)
-        with transaction.atomic():
-            Yak.objects.bulk_create([Yak(**yak_data) for yak_data in yaks])
-

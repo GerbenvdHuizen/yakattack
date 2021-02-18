@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from herd.models import Yak, Stock
+from herd.models import Yak, Stock, Order
 
 
 class YakSerializer(serializers.ModelSerializer):
@@ -15,3 +15,11 @@ class StockSerializer(serializers.ModelSerializer):
     class Meta:
         model = Stock
         fields = ['milk', 'skins']
+
+
+class OrderSerializer(serializers.ModelSerializer):
+    milk = serializers.FloatField()
+
+    class Meta:
+        model = Order
+        fields = ['days_past', 'customer', 'milk', 'skins']
