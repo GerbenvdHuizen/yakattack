@@ -14,7 +14,6 @@ router.register(r'yak-shop/herd', herd_views.HerdViewSet)
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    # url(r'^yak-shop/herd/(?P<days_past>\d+)/$', herd_views.HerdView.as_view(), name='herd'),
     url(r'^yak-shop/upload/$', herd_views.UpdateXMLView.as_view(), name='upload'),
     url(r'^yak-shop/order/$', herd_views.OrderListView.as_view(), name='order-list'),
     url(r'^yak-shop/order/(?P<days_past>\d+)/$', herd_views.OrderDetailView.as_view(), name='order-detail'),
