@@ -1,0 +1,187 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgresql-data
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+status: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    yak.service: postgresql
+  name: postgresql
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      yak.service: postgresql
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    type: RollingUpdate
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        yak.service: postgresql
+    spec:
+      containers:
+        - image: postgres:11.5
+          name: postgresql
+          ports:
+            - containerPort: 5432
+          resources: {}
+          env:
+            - name: POSTGRES_DB
+              value: yakbase
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: postgresql-admin
+                  key: username
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgresql-admin
+                  key: password
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          volumeMounts:
+            - mountPath: /var/lib/postgresql/data
+              name: postgresql-data
+            - mountPath: /dev/shm
+              name: dshm
+      restartPolicy: Always
+      volumes:
+        - name: postgresql-data
+          persistentVolumeClaim:
+            claimName: postgresql-data
+        - emptyDir:
+            medium: Memory
+          name: dshm
+status: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: null
+  labels:
+    yak.service: postgresql
+  name: postgresql
+spec:
+  ports:
+    - name: "5432"
+      port: 5432
+      targetPort: 5432
+  selector:
+    yak.service: postgresql
+status:
+  loadBalancer: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    yak.service: yakapp
+  name: yakapp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      yak.service: yakapp
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    type: RollingUpdate
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        yak.service: yakapp
+    spec:
+      containers:
+        - image: eu.gcr.io/qualified-sun-305309/yakshop:latest
+          name: yakapp
+          ports:
+            - containerPort: 8000
+          resources: {}
+          imagePullPolicy: Always
+          env:
+            - name: PROD_MODE
+              value: "1"
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: django-secret-key
+                  key: key
+            - name: POSTGRES_DB
+              value: yakbase
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: postgresql-admin
+                  key: username
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgresql-admin
+                  key: password
+          command:
+            - python
+            - manage.py
+            - runserver
+            - 0.0.0.0:8000
+#            - gunicorn
+#            - -b
+#            - 0.0.0.0:8000
+#            - yakshop.wsgi
+#            - --workers=1
+#            - --worker-class
+#            - gevent
+#            - --access-logfile
+#            - "-"
+#            - --error-logfile
+#            - "-"
+#            - --enable-stdio-inheritance
+      restartPolicy: Always
+status: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: null
+  labels:
+    yak.service: yakapp
+  name: yakapp
+spec:
+  ports:
+    - name: "8000"
+      port: 8000
+      targetPort: 8000
+  selector:
+    yak.service: yakapp
+status:
+  loadBalancer: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: yakport-service
+spec:
+  type: NodePort
+  selector:
+    yak.service: yakapp
+  ports:
+  - protocol: TCP
+    port: 8000
+    targetPort: 8000

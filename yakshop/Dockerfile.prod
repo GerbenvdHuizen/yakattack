@@ -1,0 +1,18 @@
+FROM python:3
+ENV PYTHONUNBUFFERED=1
+
+COPY requirements.txt /app/requirements.txt
+
+WORKDIR /app
+
+RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir gunicorn~=20.0 gevent~=20.0
+
+COPY . /app/
+
+ENV SECRET_KEY='6vz6&t%!(uhdyiem*8rh-ip^-d33%9e*6rllu3caw+jhtffz6_'
+RUN python /app/manage.py collectstatic
+
+EXPOSE 8000
+
+CMD [ "gunicorn", "-b", "0.0.0.0:8000", "monolith.wsgi", "--enable-stdio-inheritance", "--error-logfile", "-", "--access-logfile", "-" ]

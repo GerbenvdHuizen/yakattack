@@ -9,9 +9,8 @@ https://docs.djangoproject.com/en/3.1/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/3.1/ref/settings/
 """
-
 from pathlib import Path
-from yakshop.utils import get_env_var
+from yakshop.utils import get_env_var, env_to_bool
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -22,9 +21,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = get_env_var('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
+# DEBUG = not get_env_var('PROD_MODE', cast_func=env_to_bool)
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
 # Application definition
 
@@ -113,6 +113,8 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/3.1/howto/static-files/
 
+STATIC_ROOT = '/static/'
+
 STATIC_URL = '/static/'
 
 POSTGRES_DB = get_env_var('POSTGRES_DB')
@@ -125,7 +127,7 @@ DATABASES = {
         'NAME': POSTGRES_DB,
         'USER': POSTGRES_USER,
         'PASSWORD': POSTGRES_PASSWORD,
-        'HOST': 'db',
+        'HOST': 'postgresql',
         'PORT': 5432,
     }
 }
@@ -134,3 +136,6 @@ PATH_TO_HERD = f"{BASE_DIR}/herd/herd.xml"
 
 YAK_MAX_AGE = 1000
 YAK_YEAR_IN_DAYS = 100
+
+# Exempt GKE Ingress healthcheck from redirect or nothing works!
+SECURE_REDIRECT_EXEMPT = [r'^$']

@@ -18,3 +18,8 @@ class Order(models.Model):
     customer = models.CharField(max_length=128)
     milk = models.DecimalField(max_digits=20, decimal_places=2)
     skins = models.IntegerField()
+
+
+class Herd(models.Model):
+    days_past = models.IntegerField(primary_key=True)
+    yaks = models.JSONField(default=list)

@@ -1,13 +1,20 @@
 from django.conf import settings
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.exceptions import APIException
 from rest_framework.views import APIView
 from rest_framework import status, viewsets
 from rest_framework.response import Response
+from rest_framework.request import Request
 
 from herd.models import *
-from herd.serializers import YakSerializer, StockSerializer, OrderSerializer
-from herd.utils import create_missing_stock_info, calc_yak_last_shaved, create_herd_xml_from_dict, \
-    check_and_update_herd
+from herd.serializers import YakSerializer, StockSerializer, OrderSerializer, HerdSerializer
+from herd.utils import update_stock_herd_db, create_herd_xml_from_dict, check_and_update_yaks, clean_slate
+
+
+@api_view(['GET'], )
+@permission_classes([])
+def health_check(request: Request) -> Response:
+    return Response("OK", status=status.HTTP_200_OK)
 
 
 class YakViewSet(viewsets.ModelViewSet):
@@ -20,35 +27,21 @@ class StockViewSet(viewsets.ModelViewSet):
     serializer_class = StockSerializer
 
     def retrieve(self, request, *args, **kwargs):
-        check_and_update_herd()
-        create_missing_stock_info(int(self.kwargs['pk']))
+        check_and_update_yaks()
+        update_stock_herd_db(int(self.kwargs['pk']))
         response = super().retrieve(request, *args, **kwargs)
         return response
 
 
-class HerdView(APIView):
+class HerdViewSet(viewsets.ModelViewSet):
+    queryset = Herd.objects.all().order_by('days_past')
+    serializer_class = HerdSerializer
 
-    def get(self, request, days_past: str):
-        check_and_update_herd()
-        db_yaks = Yak.objects.all().order_by('pk')
-        yaks_with_last_shaved_info = calc_yak_last_shaved(db_yaks.values(), int(days_past))
-
-        formatted_yaks = []
-        for yak in yaks_with_last_shaved_info:
-            age = float((yak['age_in_days'] + int(days_past))/settings.YAK_YEAR_IN_DAYS)
-            yak_state = 'alive'
-            if age >= settings.YAK_MAX_AGE/settings.YAK_YEAR_IN_DAYS:
-                age = settings.YAK_MAX_AGE/settings.YAK_YEAR_IN_DAYS
-                yak_state = 'deceased'
-            formatted_yak = {
-                'name': yak['name'],
-                'age': age,
-                'age-last-shaved': float(yak['age_last_shaved']/settings.YAK_YEAR_IN_DAYS),
-                'status': yak_state
-            }
-            formatted_yaks.append(formatted_yak)
-
-        return Response({'herd': formatted_yaks})
+    def retrieve(self, request, *args, **kwargs):
+        check_and_update_yaks()
+        update_stock_herd_db(int(self.kwargs['pk']))
+        response = super().retrieve(request, *args, **kwargs)
+        return response
 
 
 class OrderDetailView(APIView):
@@ -72,7 +65,7 @@ class OrderDetailView(APIView):
             raise APIException(detail='You are ordering both ZERO milk and skins. This order is invalid.')
 
         days_past = int(days_past)
-        check_and_update_herd()
+        check_and_update_yaks()
 
         existing_orders = Order.objects.filter(days_past__lte=days_past)
 
@@ -80,7 +73,7 @@ class OrderDetailView(APIView):
             'milk': sum([float(order.milk) for order in existing_orders]),
             'skins': sum([order.skins for order in existing_orders])
         }
-        create_missing_stock_info(days_past)
+        update_stock_herd_db(days_past)
         current_stock = Stock.objects.get(days_past=days_past)
 
         successful_order = {}
@@ -118,8 +111,6 @@ class UpdateXMLView(APIView):
 
     def post(self, request):
         create_herd_xml_from_dict(request.data)
-        Yak.objects.all().delete()
-        Stock.objects.all().delete()
-        Order.objects.all().delete()
-        check_and_update_herd()
-        return Response({}, status=status.HTTP_200_OK)
+        clean_slate()
+        check_and_update_yaks()
+        return Response(status=status.HTTP_201_CREATED)
