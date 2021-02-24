@@ -39,49 +39,61 @@ def calc_shave_time(age_in_days: int) -> float:
 
 
 def create_stock_herd_data(yaks: List[OrderedDict], days_past: int) -> (List[Dict], List[Dict]):
+    # Use list of yaks to keep track of last shaved age and start stock for milk and skins
+    start_milk = 0
+    start_skins = 0
+    for yak in yaks:
+        if settings.YAK_MAX_AGE > yak['age_in_days'] > settings.MIN_SHAVE_AGE_IN_DAYS:
+            yak.update({'age_last_shaved': yak['age_in_days']})
+            start_skins += 1
+
     stock_per_day = []
     herd_per_day = []
-    for yak in yaks:
-        yak.update({'age_last_shaved': yak['age_in_days']})
-
-    for dp in range(1, (days_past + 1)):
+    for iter_days_past in range(1, (days_past + 1)):
         formatted_yaks = []
-        dp_stock = {
-            'days_past': dp,
-            'milk': 0 if dp == 1 else stock_per_day[-1]['milk'],
-            'skins': 3 if dp == 1 else stock_per_day[-1]['skins']
+        stock = {
+            'days_past': iter_days_past,
+            'milk': start_milk if iter_days_past == 1 else stock_per_day[-1]['milk'],
+            'skins': start_skins if iter_days_past == 1 else stock_per_day[-1]['skins']
         }
         for yak in yaks:
-            current_age_in_days = (dp - 1) + yak['age_in_days']
-            if current_age_in_days < settings.YAK_MAX_AGE:
+            age_in_days_after_days_past = iter_days_past + yak['age_in_days']
+            # days_past 13 means that day 12 has elapsed, but day 13 has yet to begin
+            current_age_in_days = age_in_days_after_days_past - 1
+            if settings.YAK_MAX_AGE > age_in_days_after_days_past >= settings.MIN_SHAVE_AGE_IN_DAYS:
                 if yak['sex'] == 'f':
-                    dp_stock['milk'] = dp_stock['milk'] + calc_milk(current_age_in_days)
-                if shave_needed(current_age_in_days, yak['age_last_shaved']):
+                    stock['milk'] = stock['milk'] + calc_milk(current_age_in_days)
+                if shave_needed(current_age_in_days, yak):
                     yak['age_last_shaved'] = current_age_in_days
-                    dp_stock['skins'] = dp_stock['skins'] + 1
+                    stock['skins'] = stock['skins'] + 1
                 yak_state = 'alive'
             else:
-                current_age_in_days = settings.YAK_MAX_AGE
+                age_in_days_after_days_past = settings.YAK_MAX_AGE
                 yak_state = 'deceased'
+
             formatted_yak = {
                 'name': yak['name'],
-                'age': (current_age_in_days + 1) / settings.YAK_YEAR_IN_DAYS,
-                'age-last-shaved': float(yak['age_last_shaved'] / settings.YAK_YEAR_IN_DAYS),
+                'age': age_in_days_after_days_past / settings.YAK_YEAR_IN_DAYS,
+                'age-last-shaved': float(yak['age_last_shaved'] / settings.YAK_YEAR_IN_DAYS)
+                if 'age_last_shaved' in yak else 'Not eligible',
                 'status': yak_state
             }
             formatted_yaks.append(formatted_yak)
-        stock_per_day.append(dp_stock)
+        stock_per_day.append(stock)
         herd_per_day.append({
-            'days_past': dp,
+            'days_past': iter_days_past,
             'yaks': formatted_yaks
         })
 
     return stock_per_day, herd_per_day
 
 
-def shave_needed(current_age_in_days: int, age_last_shaved: int) -> bool:
+def shave_needed(current_age_in_days: int, yak: Dict) -> bool:
+    # If yak has never been shaved before and is now at the correct shave age return True
+    if 'age_last_shaved' not in yak:
+        return current_age_in_days == settings.MIN_SHAVE_AGE_IN_DAYS
     allowed_gap_days = calc_shave_time(current_age_in_days)
-    eligible_for_shave = True if (current_age_in_days - age_last_shaved) > allowed_gap_days else False
+    eligible_for_shave = (current_age_in_days - yak['age_last_shaved']) > allowed_gap_days
     return eligible_for_shave
 
 

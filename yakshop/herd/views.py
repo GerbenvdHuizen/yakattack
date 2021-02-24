@@ -61,9 +61,11 @@ class OrderDetailView(APIView):
 
         new_milk_order = float(new_order.get('milk', 0))
         new_skins_order = int(new_order.get('skins', 0))
+        # Check if valid order
         if not new_milk_order and not new_skins_order:
             raise APIException(detail='You are ordering both ZERO milk and skins. This order is invalid.')
 
+        # Fetch data needed to check order success state
         days_past = int(days_past)
         check_and_update_yaks()
 
@@ -73,9 +75,11 @@ class OrderDetailView(APIView):
             'milk': sum([float(order.milk) for order in existing_orders]),
             'skins': sum([order.skins for order in existing_orders])
         }
+
         update_stock_herd_db(days_past)
         current_stock = Stock.objects.get(days_past=days_past)
 
+        # Check if milk or skins can be ordered
         successful_order = {}
         if (previously_ordered_stock['milk'] + new_milk_order) <= current_stock.milk:
             successful_order['milk'] = new_milk_order
@@ -86,6 +90,7 @@ class OrderDetailView(APIView):
             Order.objects.create(customer=new_customer, days_past=days_past, milk=successful_order.get('milk', 0),
                                  skins=successful_order.get('skins', 0))
 
+        # Check if partial or full order
         if not all(key in successful_order for key in ('milk', 'skins')):
             return Response(successful_order, status=status.HTTP_206_PARTIAL_CONTENT)
         return Response(successful_order, status=status.HTTP_201_CREATED)

@@ -97,6 +97,9 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+# Exempt GKE Ingress healthcheck from redirect or nothing works!
+SECURE_REDIRECT_EXEMPT = [r'^$']
+
 # Internationalization
 # https://docs.djangoproject.com/en/3.1/topics/i18n/
 
@@ -136,6 +139,4 @@ PATH_TO_HERD = f"{BASE_DIR}/herd/herd.xml"
 
 YAK_MAX_AGE = 1000
 YAK_YEAR_IN_DAYS = 100
-
-# Exempt GKE Ingress healthcheck from redirect or nothing works!
-SECURE_REDIRECT_EXEMPT = [r'^$']
+MIN_SHAVE_AGE_IN_DAYS = 100
